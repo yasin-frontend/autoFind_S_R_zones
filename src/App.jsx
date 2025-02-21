@@ -81,13 +81,20 @@ const App = () => {
       }
       seriesRef.current.setData(candles);
       analyzeSupportResistance(candles);
+
       seriesRef.current.createPriceLine({
         price: candles[candles.length - 1].close, // Последняя свеча (актуальная цена)
-        color: '#ff0000', // Цвет линии
+        color: !active ? '#ff0000' : '#26a69a', // Цвет линии
         lineWidth: 2,
-        lineStyle: 0, // Пунктирная линия (0 — сплошная, 2 — пунктирная)
+        lineStyle: !active ? 0 : 1, // Пунктирная линия (0 — сплошная, 2 — пунктирная)
         axisLabelVisible: false,
       });
+      seriesRef.current.applyOptions({
+        price: candles[candles.length - 1].close,
+        color: !active ? '#ff0000' : '#26a69a',
+        lineWidth: 2,
+      lineStyle: active ? 2 : 0, 
+      })
     };
 
     const processMarkers = (groupedLevels, markersForPivots) => {
@@ -96,16 +103,11 @@ const App = () => {
       for (let i = 0; i < groupedLevels.length - 1; i++) {
         const lowerBound = groupedLevels[i];
         const upperBound = groupedLevels[i + 1];
-        
-        // Фильтруем pivots между текущими двумя уровнями
         const pivotsInRange = markersForPivots.filter(m => m.price > lowerBound && m.price < upperBound);
         
         if (pivotsInRange.length > 0) {
-          // Усредняем их цену
           const averagePrice = pivotsInRange.reduce((sum, m) => sum + m.price, 0) / pivotsInRange.length;
-          
-          // Добавляем усреднённый уровень вместо отдельных pivots
-          newMarkers.push({ price: averagePrice, color: '#03fd8861', lineWidth: 2, lineStyle: 1, axisLabelVisible: true });
+          newMarkers.push({ price: averagePrice, color: '#03fd88a7', lineWidth: 2, lineStyle: 1, axisLabelVisible: true });
         }
       }
       
