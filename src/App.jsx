@@ -10,6 +10,7 @@ const App = () => {
   const [timeframe, setTimeframe] = useState("4h");
   const chartInstance = useRef(null);
   const seriesRef = useRef(null);
+  const [unicalRange, setUnicalRange] = useState(null)
 
   const timeframes = ["1d", "4h", "1h"];
   
@@ -131,6 +132,7 @@ const App = () => {
       //
 
       const range = calculateRange(candles);
+      setUnicalRange(range)
       const groupedLevels = groupSupport(currentPrice, range, candles);
 
       // if (groupedLevels.length > 0) {
@@ -140,6 +142,15 @@ const App = () => {
             color: '#ff0000',
             lineWidth: 2,
             lineStyle: 0,
+            axisLabelVisible: true,
+          });
+        })
+        markersForPivots.forEach((item) => {
+          seriesRef.current.createPriceLine({
+            price: item.price,
+            color: '#03fd8861',
+            lineWidth: 2,
+            lineStyle: 1,
             axisLabelVisible: true,
           });
         })
@@ -223,6 +234,9 @@ const App = () => {
         </select>
       </nav>
       <div ref={chartRef} style={{ width: "100%", height: "85vh" }} />
+      <h1 style={{position: 'absolute', fontSize: '40px', color: 'black', fontFamily: 'sans-serif', top: '20%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: '100', opacity: 0.9, textShadow: '0px 0px 5px black'}}>
+        {`ATR: ${unicalRange}`}
+      </h1>
     </>
   );
 };
