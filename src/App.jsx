@@ -11,6 +11,7 @@ const App = () => {
   const chartInstance = useRef(null);
   const seriesRef = useRef(null);
   const [unicalRange, setUnicalRange] = useState(null)
+  const [active, setActive] = useState(false)
 
   const timeframes = ["1d", "4h", "1h"];
   
@@ -70,6 +71,7 @@ const App = () => {
         upColor: "#26a69a", downColor: "#ef5350", borderUpColor: "#26a69a", borderDownColor: "#ef5350",
         wickUpColor: "#26a69a", wickDownColor: "#ef5350",
       });
+      
     };
     createChartInstance()
 
@@ -79,97 +81,98 @@ const App = () => {
       }
       seriesRef.current.setData(candles);
       analyzeSupportResistance(candles);
+      seriesRef.current.createPriceLine({
+        price: candles[candles.length - 1].close, // Последняя свеча (актуальная цена)
+        color: '#ff0000', // Цвет линии
+        lineWidth: 2,
+        lineStyle: 0, // Пунктирная линия (0 — сплошная, 2 — пунктирная)
+        axisLabelVisible: false,
+      });
     };
 
-    const analyzeSupportResistance = (candles) => {
-      const markers = [];
-      const markersForPivots = []
-      const currentPrice = candles[candles.length - 1].close
-
-      const checkIsExtremum = (i) => {
-        if (i < 5 || i + 5 >= candles.length) return false;
-
-        const before = candles.slice(i - 5, i);
-        const after = candles.slice(i + 1, i + 6);
-
-        const isHighest = before.every(c => c.high < candles[i].high) && after.every(c => c.high < candles[i].high);
-        const isLowest = before.every(c => c.low > candles[i].low) && after.every(c => c.low > candles[i].low);
-
-        return isHighest || isLowest;
-      };
-
-      // const checkLimit = candles.length > 20 ? candles.length - 20 : 0;
-      // for (let i = checkLimit; i < candles.length; i++) {
-      //   const current = candles[i];
-
-      //   if (checkIsExtremum(i)) {
-      //     const isHighest = current.high > candles[i - 1].high;
-      //     const isLowest = current.low < candles[i - 1].low;
-
-      //     if (isHighest || isLowest) {
-      //       const price = isHighest ? current.high : current.low;
-      //       const date = current.time
-      //       levels.push({ price, isHighest, isLowest, date });
-      //     }
-      //   }
-      // }
-
-      // support / resistance zone
-      for (let i = 0; i < candles.length; i++) {
-        const current = candles[i];
-
-        if (checkIsExtremum(i)) {
-          const isHighest = current.high > candles[i - 1].high;
-          const isLowest = current.low < candles[i - 1].low;
-
-          if (isHighest || isLowest) {
-            const price = isHighest ? current.high : current.low;
-            const date = current.time
-            markersForPivots.push({ price, isHighest, isLowest, date });
-          }
+    const processMarkers = (groupedLevels, markersForPivots) => {
+      const newMarkers = [];
+      
+      for (let i = 0; i < groupedLevels.length - 1; i++) {
+        const lowerBound = groupedLevels[i];
+        const upperBound = groupedLevels[i + 1];
+        
+        // Фильтруем pivots между текущими двумя уровнями
+        const pivotsInRange = markersForPivots.filter(m => m.price > lowerBound && m.price < upperBound);
+        
+        if (pivotsInRange.length > 0) {
+          // Усредняем их цену
+          const averagePrice = pivotsInRange.reduce((sum, m) => sum + m.price, 0) / pivotsInRange.length;
+          
+          // Добавляем усреднённый уровень вместо отдельных pivots
+          newMarkers.push({ price: averagePrice, color: '#03fd8861', lineWidth: 2, lineStyle: 1, axisLabelVisible: true });
         }
       }
-      //
-
+      
+      return newMarkers;
+    };
+    
+    const analyzeSupportResistance = (candles) => {
+      const markers = [];
+      const markersForPivots = [];
+      const currentPrice = candles[candles.length - 1].close;
+    
+      const checkIsExtremum = (i) => {
+        if (i < 5 || i + 5 >= candles.length) return false;
+        const before = candles.slice(i - 5, i);
+        const after = candles.slice(i + 1, i + 6);
+        const isHighest = before.every(c => c.high < candles[i].high) && after.every(c => c.high < candles[i].high);
+        const isLowest = before.every(c => c.low > candles[i].low) && after.every(c => c.low > candles[i].low);
+        return isHighest || isLowest;
+      };
+    
+      for (let i = 0; i < candles.length; i++) {
+        if (checkIsExtremum(i)) {
+          const current = candles[i];
+          const isHighest = current.high > candles[i - 1].high;
+          const isLowest = current.low < candles[i - 1].low;
+          markersForPivots.push({ price: isHighest ? current.high : current.low, date: current.time, isHighest, isLowest });
+        }
+      }
+    
       const range = calculateRange(candles);
-      setUnicalRange(range)
+      setUnicalRange(range);
       const groupedLevels = groupSupport(currentPrice, range, candles);
-
-      // if (groupedLevels.length > 0) {
+    
+      if (!active) {
         groupedLevels.forEach((item) => {
           seriesRef.current.createPriceLine({
-            price: item,
-            color: '#ff0000',
-            lineWidth: 2,
-            lineStyle: 0,
-            axisLabelVisible: true,
+            price: item, 
+            color: '#ff0000', 
+            lineWidth: 2, 
+            lineStyle: 0, 
+            axisLabelVisible: true
           });
-        })
-        markersForPivots.forEach((item) => {
-          seriesRef.current.createPriceLine({
-            price: item.price,
-            color: '#03fd8861',
-            lineWidth: 2,
-            lineStyle: 1,
-            axisLabelVisible: true,
-          });
-        })
-      // }
-      // else if(levels.length){
-        markersForPivots.forEach((item) =>{
-          markers.push({
-            time: item.date,  
-            position: item.isHighest ? 'aboveBar' : 'belowBar',
-            color: item.isHighest ? 'green' : 'red',
-            shape: item.isHighest ? 'arrowDown' : 'arrowUp',
-          });
-        })
-      // }
+        });
+      }
+    
+      // Обработка markersForPivots и замена их на усреднённые уровни
+      const adjustedMarkers = processMarkers(groupedLevels, markersForPivots);
 
+      adjustedMarkers.forEach((item) => {
+        seriesRef.current.createPriceLine(item);
+      });
+    
+      // Добавляем маркеры на график
+      markersForPivots.forEach((item) => {
+        markers.push({
+          time: item.date,
+          position: item.isHighest ? 'aboveBar' : 'belowBar',
+          color: item.isHighest ? 'green' : 'red',
+          shape: item.isHighest ? 'arrowDown' : 'arrowUp',
+        });
+      });
+    
       seriesRef.current.setMarkers(markers);
       console.warn(range);
       console.log(groupedLevels);
     };
+    
 
     const groupSupport = (currentPrice, range, candles) => {
       let AGroup = [];
@@ -219,11 +222,12 @@ const App = () => {
     };
 
     fetchCandles();
-  }, [symbol, timeframe]);
-
+  }, [symbol, timeframe, active]);
+  console.log(active);
+  
   return (
     <>
-      <nav style={{ width: "100%", height: "60px", background: "black", display: "flex", gap: "20px", alignItems: "center", justifyContent: "flex-start", padding: "15px 20px" }}>
+      <nav style={{ width: "100%", height: "60px", background: "black", display: "flex", gap: "30px", alignItems: "center", justifyContent: "flex-start", padding: "15px 20px" }}>
         <label htmlFor="symbol" style={{ color: "white" }}>Choose symbol</label>
         <select name="symbol" id="symbol" value={symbol} onChange={(e) => setSymbol(e.target.value)}>
           {symbols.map((item) => (<option key={item} value={item}>{item}</option>))}
@@ -232,11 +236,13 @@ const App = () => {
         <select name="timeframe" id="timeframe" value={timeframe} onChange={(e) => setTimeframe(e.target.value)}>
           {timeframes.map((item) => (<option key={item} value={item}>{item}</option>))}
         </select>
+        <h1 style={{color: '#26a69a', fontSize: '30px'}}>{`ATR: ${unicalRange}`}</h1>
+        <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px'}}>
+          <p style={{color: 'white', fontSize: '20px'}}>hide S/R lines</p>
+          <input type="checkbox" style={{fontSize: '40px', width: '20px', height: '20px'}} onChange={() => setActive(!active)} />
+        </div>
       </nav>
       <div ref={chartRef} style={{ width: "100%", height: "85vh" }} />
-      <h1 style={{position: 'absolute', fontSize: '40px', color: 'black', fontFamily: 'sans-serif', top: '20%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: '100', opacity: 0.9, textShadow: '0px 0px 5px black'}}>
-        {`ATR: ${unicalRange}`}
-      </h1>
     </>
   );
 };
