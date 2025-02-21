@@ -83,10 +83,10 @@ const App = () => {
       analyzeSupportResistance(candles);
 
       seriesRef.current.createPriceLine({
-        price: candles[candles.length - 1].close, // Последняя свеча (актуальная цена)
-        color: !active ? '#ff0000' : '#26a69a', // Цвет линии
+        price: candles[candles.length - 1].close,
+        color: !active ? '#ff0000' : '#26a69a',
         lineWidth: 2,
-        lineStyle: !active ? 0 : 1, // Пунктирная линия (0 — сплошная, 2 — пунктирная)
+        lineStyle: !active ? 0 : 1,
         axisLabelVisible: false,
       });
       seriesRef.current.applyOptions({
@@ -137,7 +137,7 @@ const App = () => {
         }
       }
     
-      const range = calculateRange(candles);
+      const range = calculateATR(candles);
       setUnicalRange(range);
       const groupedLevels = groupSupport(currentPrice, range, candles);
     
@@ -153,14 +153,12 @@ const App = () => {
         });
       }
     
-      // Обработка markersForPivots и замена их на усреднённые уровни
       const adjustedMarkers = processMarkers(groupedLevels, markersForPivots);
 
       adjustedMarkers.forEach((item) => {
         seriesRef.current.createPriceLine(item);
       });
     
-      // Добавляем маркеры на график
       markersForPivots.forEach((item) => {
         markers.push({
           time: item.date,
@@ -210,18 +208,23 @@ const App = () => {
     };
     
 
-    const calculateRange = (candles) => {
-      let highSum = 0;
-      let lowSum = 0;
-
-      for (let i = 0; i < 100; i++) {
-        highSum += candles[i].high;
-        lowSum += candles[i].low;
+    const calculateATR = (candles, period = 100) => {
+      if (candles.length < period) return null; // yetarlicha sham bormi yuqmi shuni tekshiramiz
+  
+      let trValues = []; // 100 shamlarni hight va low larini qushib keynichlalik ishlatish uchun yani periodga bolish uchun
+  
+      for (let i = 1; i < period; i++) { // 100 shamni hisoblaymiz
+          let high = candles[i].high; // hamma hight
+          let low = candles[i].low; // hamma low
+          let prevClose = candles[i - 1].close; // birinchi sham, bu bizga narxlarda gap bolganda ATR ni to'g'ri hisoblab ovolishimiz uchun kerak
+          let tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)); // ATR to'g'ri hisoblash uchun
+          trValues.push(tr);
       }
-
-      const range = (highSum - lowSum) / 20;
-      return range;
-    };
+  
+      let atr = trValues.reduce((sum, value) => sum + value, 0) / period; // ATR hisoblash
+      return atr; // ATR ni jonatish
+  };
+  
 
     fetchCandles();
   }, [symbol, timeframe, active]);
